@@ -10,10 +10,6 @@ public class CheckedAdd extends Add {
 
     @Override
     protected int calculate(int a, int b) {
-        int result = a + b;
-        if (((a ^ result) & (b ^ result)) < 0) {
-            throw new OverflowException("Overflow in sum: " + a + " " + b);
-        }
-        return result;
+        return CheckExceptions.add(a, b);
     }
 }

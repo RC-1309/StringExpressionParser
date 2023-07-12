@@ -1,5 +1,5 @@
 package expression.exceptions;
 
 public class WrongFormatException extends IllegalArgumentException {
-    WrongFormatException(String message) {super(message);}
+    public WrongFormatException(String message) {super(message);}
 }

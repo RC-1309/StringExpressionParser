@@ -1,6 +1,7 @@
 package expression.exceptions;
 
-import expression.*;
+import expression.ExtendedExpression;
+import expression.Multiply;
 
 public class CheckedMultiply extends Multiply {
     public CheckedMultiply(ExtendedExpression firstExpression, ExtendedExpression secondExpression) {

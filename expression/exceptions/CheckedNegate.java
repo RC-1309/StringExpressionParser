@@ -1,6 +1,7 @@
 package expression.exceptions;
 
-import expression.*;
+import expression.ExtendedExpression;
+import expression.Minus;
 
 public class CheckedNegate extends Minus {
 
@@ -10,10 +11,6 @@ public class CheckedNegate extends Minus {
 
     @Override
     protected int calculate(int a) {
-        if (a == Integer.MIN_VALUE) {
-            throw new OverflowException("overflow in negate");
-        } else {
-            return super.calculate(a);
-        }
+        return CheckExceptions.neg(a);
     }
 }

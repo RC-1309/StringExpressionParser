@@ -6,7 +6,6 @@ import expression.exceptions.ParseStringException;
 public class ExpressionParser implements TripleParser {
     @Override
     public TripleExpression parse(String expression) throws ParseStringException {
-//        System.err.println(expression);
         return new Parser(new StringExpression(expression)).parse();
     }
 
@@ -47,18 +46,13 @@ public class ExpressionParser implements TripleParser {
         }
 
         public TripleExpression parse() throws ParseStringException {
-            TripleExpression expression = parseStringToExpression();
+            TripleExpression expression = allPriority(MAX_PRIORITY);
             if (eof()) {
                 return expression;
             } else {
                 throw new IllegalArgumentException("some mistake");
             }
         }
-
-        public TripleExpression parseStringToExpression() throws ParseStringException {
-            return allPriority(MAX_PRIORITY);
-        }
-
 
         public static ExtendedExpression getExpression(String operand, ExtendedExpression left,
                                                        ExtendedExpression right) {
@@ -105,7 +99,7 @@ public class ExpressionParser implements TripleParser {
                 return new Minus(priorityZero());
             } else if (between('0', '9') || between('x', 'z')) {
                 return create(false);
-            } else if (isOpenBracket()) {
+            } else if (take('(')) {
                 ExtendedExpression res = allPriority(MAX_PRIORITY);
                 isCloseBracket();
                 return res;

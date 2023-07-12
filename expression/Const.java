@@ -3,17 +3,14 @@ package expression;
 import java.util.Objects;
 
 public class Const implements ExtendedExpression {
-    private final double value;
-    private final boolean isDouble;
+    private final Number value;
 
     public Const(int value) {
         this.value = value;
-        isDouble = false;
     }
 
     public Const(double value) {
         this.value = value;
-        isDouble = true;
     }
 
     @Override
@@ -51,12 +48,12 @@ public class Const implements ExtendedExpression {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
         Const that = (Const) o;
-        return value == that.value;
+        return Objects.equals(value, that.value);
     }
 
     @Override
     public String toString() {
-        return isDouble ? Double.toString(value) : Integer.toString((int) value);
+        return value.toString();
     }
 
     @Override
@@ -66,11 +63,11 @@ public class Const implements ExtendedExpression {
 
     @Override
     public double evaluate(double x) {
-        return value;
+        return value.doubleValue();
     }
 
     @Override
     public int evaluate(int x, int y, int z) {
-        return (int) value;
+        return value.intValue();
     }
 }

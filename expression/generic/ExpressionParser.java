@@ -1,44 +1,55 @@
-package expression.exceptions;
+package expression.generic;
 
-import expression.*;
-import expression.parser.TripleParser;
-import expression.parser.BaseParser;
-import expression.parser.StringExpression;
+import expression.exceptions.*;
 
 import java.util.Set;
 
-public class ExpressionParser implements TripleParser {
+public class ExpressionParser<T extends Number> implements TripleParser<T> {
     @Override
-    public TripleExpression parse(final String expression) {
+    public TripleExpression<T> parse(final String expression, final Calculator<T> calculator) {
 //        System.err.println(expression);
-        return new Parser(new StringExpression(expression)).parse();
+        return new Parser(new StringExpression(expression), calculator).parse();
     }
 
-    public static class Parser extends BaseParser {
-        private static final int MAX_PRIORITY = Priority.getMaxPriority();
-        private static final Set<String> SYMBOLIC_OPERATIONS = Priority.getSymbolicOperations();
+    public class Parser extends BaseParser<T> {
+        private final Calculator<T> calculator;
+        private static final Set<String> SYMBOLIC_OPERATIONS = Set.of("-", "*", "/", "+");
+        private static final int MAX_PRIORITY = 2;
+        private static final String[] ZERO_PRIORITY = {"abs", "square"};
+        private static final String[] ONE_PRIORITY = {"/", "*", "mod"};
+        private static final String[] TWO_PRIORITY = {"-", "+"};
 
-        protected Parser(final StringExpression source) {
-            super(source);
+        public static String[] getOperand(int priority) throws WrongPriorityException {
+            return switch (priority) {
+                case 0 -> ZERO_PRIORITY;
+                case 1 -> ONE_PRIORITY;
+                case 2 -> TWO_PRIORITY;
+                default -> throw new WrongPriorityException("Wrong priority");
+            };
         }
 
-        private ExtendedExpression getNumber(final boolean needMinus) {
+        protected Parser(final StringExpression source, final Calculator<T> calculator) {
+            super(source);
+            this.calculator = calculator;
+        }
+
+        private ExtendedExpression<T> getNumber(final boolean needMinus) {
             final StringBuilder sb = new StringBuilder();
             if (needMinus) {
                 sb.append('-');
             }
-            while (Character.isDigit(ch)) {
+            while (Character.isDigit(ch) || ch == '.') {
                 sb.append(take());
             }
             try {
-                return new Const(Integer.parseInt(sb.toString()));
+                return new Const<>(calculator.create(sb.toString()));
             } catch (final NumberFormatException e) {
                 throw new OverflowException(error("Constant overflow: " + sb));
             }
         }
 
-        public TripleExpression parse() {
-            final TripleExpression expression = parseStringToExpression();
+        public TripleExpression<T> parse() {
+            final TripleExpression<T> expression = parseStringToExpression();
             if (eof()) {
                 return expression;
             } else {
@@ -52,27 +63,27 @@ public class ExpressionParser implements TripleParser {
             }
         }
 
-        private TripleExpression parseStringToExpression() {
+        private TripleExpression<T> parseStringToExpression() {
             return allPriority(MAX_PRIORITY);
         }
 
-        private ExtendedExpression getBinaryExpression(final String operand, final ExtendedExpression left, final ExtendedExpression right) {
+        private ExtendedExpression<T> getBinaryExpression(final String operand,
+                                                          final ExtendedExpression<T> left,
+                                                          final ExtendedExpression<T> right) {
             return switch (operand) {
-                case "-" -> new CheckedSubtract(left, right);
-                case "+" -> new CheckedAdd(left, right);
-                case "*" -> new CheckedMultiply(left, right);
-                case "/" -> new CheckedDivide(left, right);
-                case "gcd" -> new CheckGcd(left, right);
-                case "lcm" -> new CheckLcm(left, right);
+                case "-" -> new Subtract<>(left, right, calculator);
+                case "+" -> new Add<>(left, right, calculator);
+                case "*" -> new Multiply<>(left, right, calculator);
+                case "/" -> new Divide<>(left, right, calculator);
+                case "mod" -> new Module<>(left, right, calculator);
                 default -> throw new IncorrectOperandException(error("Incorrect operand: " + operand));
             };
         }
 
-        private ExtendedExpression getUnaryExpression(final String operand, final ExtendedExpression expression) {
+        private ExtendedExpression<T> getUnaryExpression(final String operand, final ExtendedExpression<T> expression) {
             return switch (operand) {
-                case "log10" -> new CheckLog10(expression);
-                case "pow10" -> new CheckPow10(expression);
-                case "reverse" -> new CheckReverse(expression);
+                case "square" -> new Square<>(expression, calculator);
+                case "abs" -> new Abs<>(expression, calculator);
                 default -> throw new IncorrectOperandException(error("Incorrect operand: " + operand));
             };
         }
@@ -85,12 +96,12 @@ public class ExpressionParser implements TripleParser {
             return !Character.isWhitespace(ch) && ch != '(' && ch != '-';
         }
 
-        private ExtendedExpression allPriority(final int priority) {
+        private ExtendedExpression<T> allPriority(final int priority) {
             if (priority == 0) {
                 return unaryOperations();
             }
-            ExtendedExpression left = allPriority(priority - 1);
-            final String[] nameOperand = Priority.getOperand(priority);
+            ExtendedExpression<T> left = allPriority(priority - 1);
+            final String[] nameOperand = getOperand(priority);
             boolean hasNextExpression = true;
             while (hasNextExpression) {
                 hasNextExpression = false;
@@ -100,7 +111,7 @@ public class ExpressionParser implements TripleParser {
                         if (!checkSymbolicOperations(operand) && checkNext()) {
                             throw new WrongFormatException(error("Wrong format: " + operand + foundSymbol()));
                         }
-                        final ExtendedExpression right = allPriority(priority - 1);
+                        final ExtendedExpression<T> right = allPriority(priority - 1);
                         left = getBinaryExpression(operand, left, right);
                         hasNextExpression = true;
                         break;
@@ -114,8 +125,8 @@ public class ExpressionParser implements TripleParser {
             return (ch == END ? "EOF" : Character.toString(ch));
         }
 
-        private ExtendedExpression unaryOperations() {
-            final String[] nameOperand = Priority.getOperand(0);
+        private ExtendedExpression<T> unaryOperations() {
+            final String[] nameOperand = getOperand(0);
             skipWhitespace();
             for (final String operand : nameOperand) {
                 if (test(operand)) {
@@ -128,20 +139,20 @@ public class ExpressionParser implements TripleParser {
             return priorityZero();
         }
 
-        private ExtendedExpression priorityZero()  {
+        private ExtendedExpression<T> priorityZero() {
             skipWhitespace();
             if (take('-')) {
                 if (between('0', '9')) {
                     return getNumber(true);
                 }
-                final ExtendedExpression expression = unaryOperations();
-                return new CheckedNegate(expression);
+                final ExtendedExpression<T> expression = unaryOperations();
+                return new Negate<>(expression, calculator);
             } else if (between('0', '9')) {
                 return getNumber(false);
             } else if (between('x', 'z')) {
-                return new Variable(Character.toString(take()));
+                return new Variable<>(Character.toString(take()));
             } else if (take('(')) {
-                final ExtendedExpression cur = allPriority(MAX_PRIORITY);
+                final ExtendedExpression<T> cur = allPriority(MAX_PRIORITY);
                 skipWhitespace();
                 if (take(')')) {
                     return cur;

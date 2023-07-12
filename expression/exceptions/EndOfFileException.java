@@ -1,5 +1,5 @@
 package expression.exceptions;
 
 public class EndOfFileException extends IllegalArgumentException {
-    EndOfFileException(String message) {super(message);}
+    public EndOfFileException(String message) {super(message);}
 }
